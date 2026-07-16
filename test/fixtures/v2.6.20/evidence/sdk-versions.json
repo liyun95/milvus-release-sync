@@ -1,0 +1,8 @@
+[
+  {"id":"python","label":"Python SDK","value":"2.6.16","sourceType":"explicit","evidence":"pymilvus tag v2.6.16","variablesKeys":["milvus_python_sdk_real_version"],"includeInTable":true},
+  {"id":"nodejs","label":"Node.js SDK","value":"2.6.17","sourceType":"explicit","evidence":"milvus-sdk-node tag v2.6.17","variablesKeys":["milvus_node_sdk_real_version"],"includeInTable":true},
+  {"id":"java","label":"Java SDK","value":"2.6.22","sourceType":"explicit","evidence":"milvus-sdk-java tag v2.6.22","variablesKeys":["milvus_java_sdk_real_version"],"includeInTable":true},
+  {"id":"go","label":"Go SDK","value":"2.6.20","sourceType":"explicit","evidence":"Milvus release v2.6.20","variablesKeys":["milvus_go_sdk_real_version"],"includeInTable":true},
+  {"id":"rest","label":"REST","value":"2.6.20","sourceType":"explicit","evidence":"Milvus release v2.6.20","variablesKeys":["milvus_restful_sdk_real_version"],"includeInTable":false},
+  {"id":"csharp","label":"C# SDK","value":"2.6.4","sourceType":"explicit","evidence":"Unchanged upstream Variables value","variablesKeys":["milvus_csharp_sdk_real_version"],"includeInTable":false}
+]
