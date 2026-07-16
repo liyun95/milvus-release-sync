@@ -1,0 +1,48 @@
+{
+  "name": "milvus-release-sync",
+  "version": "0.1.0",
+  "description": "Plan and apply auditable Milvus release notes, SDK version, and Variables.json updates.",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/liyun95/milvus-release-sync.git"
+  },
+  "homepage": "https://github.com/liyun95/milvus-release-sync#readme",
+  "bugs": {
+    "url": "https://github.com/liyun95/milvus-release-sync/issues"
+  },
+  "bin": {
+    "milvus-release-sync": "dist/cli/index.js"
+  },
+  "files": [
+    "dist",
+    "registry",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json && chmod +x dist/cli/index.js",
+    "dev": "tsx src/cli/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "check": "npm run typecheck && npm test && npm run build",
+    "prepack": "npm run check"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "commander": "^12.1.0",
+    "diff": "^7.0.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^3.2.4"
+  }
+}
