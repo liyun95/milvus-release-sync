@@ -138,6 +138,16 @@ describe('resolveSdkVersions', () => {
     }
   });
 
+  it('rejects live source types inside explicit evidence', async () => {
+    const explicitEvidence = await completeExplicitEvidence();
+    explicitEvidence[0] = {
+      ...explicitEvidence[0],
+      sourceType: 'github-tag',
+    };
+
+    await expectInvalidExplicitEvidence(explicitEvidence);
+  });
+
   it('rejects explicit evidence with an empty value or evidence description', async () => {
     for (const field of ['value', 'evidence'] as const) {
       const explicitEvidence = await completeExplicitEvidence();

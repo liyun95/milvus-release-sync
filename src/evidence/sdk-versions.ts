@@ -213,7 +213,7 @@ function matchesRegistry(
       row.label === source.label &&
       row.includeInTable === source.includeInTable &&
       arraysEqual(row.variablesKeys, source.variablesKeys) &&
-      (row.sourceType === 'explicit' || row.sourceType === source.sourceType)
+      row.sourceType === 'explicit'
     );
   });
 }
