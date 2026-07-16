@@ -13,6 +13,19 @@ async function registry(): Promise<unknown> {
   );
 }
 
+async function completeExplicitEvidence(): Promise<SdkVersionRow[]> {
+  const parsed = parseSdkRegistry(await registry());
+  return parsed.sources.map((source) => ({
+    id: source.id,
+    label: source.label,
+    value: `${source.id}-version`,
+    sourceType: 'explicit' as const,
+    evidence: `Frozen evidence for ${source.id}`,
+    variablesKeys: source.variablesKeys,
+    includeInTable: source.includeInTable,
+  }));
+}
+
 describe('resolveSdkVersions', () => {
   it('resolves the exact v2.6.20 SDK values by each registry policy', async () => {
     const tagsByRepository: Record<string, string[]> = {
@@ -73,17 +86,7 @@ describe('resolveSdkVersions', () => {
   });
 
   it('returns validated explicit evidence without looking up live tags', async () => {
-    const explicitEvidence: SdkVersionRow[] = [
-      {
-        id: 'python',
-        label: 'Python SDK',
-        value: '2.6.16',
-        sourceType: 'explicit',
-        evidence: 'Frozen evidence for the v2.6.20 replay',
-        variablesKeys: ['milvus_python_sdk_real_version'],
-        includeInTable: true,
-      },
-    ];
+    const explicitEvidence = await completeExplicitEvidence();
     const listTags = vi.fn();
 
     await expect(
@@ -97,6 +100,50 @@ describe('resolveSdkVersions', () => {
       }),
     ).resolves.toEqual(explicitEvidence);
     expect(listTags).not.toHaveBeenCalled();
+  });
+
+  it('rejects explicit evidence that omits a registry source', async () => {
+    const explicitEvidence = (await completeExplicitEvidence()).filter(
+      ({ id }) => id !== 'rest',
+    );
+
+    await expectInvalidExplicitEvidence(explicitEvidence);
+  });
+
+  it('rejects duplicate explicit evidence IDs', async () => {
+    const explicitEvidence = await completeExplicitEvidence();
+    explicitEvidence.push({ ...explicitEvidence[0] });
+
+    await expectInvalidExplicitEvidence(explicitEvidence);
+  });
+
+  it('rejects unknown explicit evidence IDs', async () => {
+    const explicitEvidence = await completeExplicitEvidence();
+    explicitEvidence[0] = { ...explicitEvidence[0], id: 'unknown-sdk' };
+
+    await expectInvalidExplicitEvidence(explicitEvidence);
+  });
+
+  it('rejects explicit evidence with tampered registry metadata', async () => {
+    const variants: Array<(row: SdkVersionRow) => SdkVersionRow> = [
+      (row) => ({ ...row, label: 'Tampered SDK' }),
+      (row) => ({ ...row, variablesKeys: ['tampered_version_key'] }),
+      (row) => ({ ...row, includeInTable: !row.includeInTable }),
+    ];
+
+    for (const mutate of variants) {
+      const explicitEvidence = await completeExplicitEvidence();
+      explicitEvidence[0] = mutate(explicitEvidence[0]);
+      await expectInvalidExplicitEvidence(explicitEvidence);
+    }
+  });
+
+  it('rejects explicit evidence with an empty value or evidence description', async () => {
+    for (const field of ['value', 'evidence'] as const) {
+      const explicitEvidence = await completeExplicitEvidence();
+      explicitEvidence[0] = { ...explicitEvidence[0], [field]: '' };
+      await expectInvalidExplicitEvidence(explicitEvidence);
+    }
   });
 
   it('rejects malformed explicit evidence before any live lookup', async () => {
@@ -118,3 +165,24 @@ describe('resolveSdkVersions', () => {
     expect(listTags).not.toHaveBeenCalled();
   });
 });
+
+async function expectInvalidExplicitEvidence(
+  explicitEvidence: SdkVersionRow[],
+): Promise<void> {
+  const listTags = vi.fn();
+
+  await expect(
+    resolveSdkVersions({
+      releaseVersion: '2.6.20',
+      releaseLine: '2.6.x',
+      currentVariables: {},
+      registry: await registry(),
+      listTags,
+      explicitEvidence,
+    }),
+  ).rejects.toMatchObject({
+    exitCode: 2,
+    failure: { type: 'validation', subtype: 'sdk_evidence_invalid' },
+  });
+  expect(listTags).not.toHaveBeenCalled();
+}

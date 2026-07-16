@@ -116,17 +116,6 @@ export async function listGithubTags(repository: string): Promise<string[]> {
 export async function resolveSdkVersions(
   input: SdkVersionInput,
 ): Promise<SdkVersionRow[]> {
-  if (input.explicitEvidence !== undefined) {
-    const parsed = explicitEvidenceSchema.safeParse(input.explicitEvidence);
-    if (!parsed.success) {
-      throw validationError(
-        'sdk_evidence_invalid',
-        'Explicit SDK evidence does not match the required schema.',
-      );
-    }
-    return parsed.data;
-  }
-
   let registry;
   try {
     registry = parseSdkRegistry(input.registry);
@@ -135,6 +124,20 @@ export async function resolveSdkVersions(
       'sdk_registry_invalid',
       'SDK source registry does not match schema version 1.',
     );
+  }
+
+  if (input.explicitEvidence !== undefined) {
+    const parsed = explicitEvidenceSchema.safeParse(input.explicitEvidence);
+    if (
+      !parsed.success ||
+      !matchesRegistry(parsed.data, registry.sources)
+    ) {
+      throw validationError(
+        'sdk_evidence_invalid',
+        'Explicit SDK evidence is incomplete or inconsistent with the registry.',
+      );
+    }
+    return parsed.data;
   }
 
   releaseLineParts(input.releaseLine);
@@ -181,4 +184,43 @@ export async function resolveSdkVersions(
   }
 
   return rows;
+}
+
+function matchesRegistry(
+  rows: SdkVersionRow[],
+  sources: SdkRegistrySource[],
+): boolean {
+  if (rows.length !== sources.length) {
+    return false;
+  }
+
+  const rowsById = new Map<string, SdkVersionRow>();
+  for (const row of rows) {
+    if (
+      rowsById.has(row.id) ||
+      row.value.trim() === '' ||
+      row.evidence.trim() === ''
+    ) {
+      return false;
+    }
+    rowsById.set(row.id, row);
+  }
+
+  return sources.every((source) => {
+    const row = rowsById.get(source.id);
+    return (
+      row !== undefined &&
+      row.label === source.label &&
+      row.includeInTable === source.includeInTable &&
+      arraysEqual(row.variablesKeys, source.variablesKeys) &&
+      (row.sourceType === 'explicit' || row.sourceType === source.sourceType)
+    );
+  });
+}
+
+function arraysEqual(left: string[], right: string[]): boolean {
+  return (
+    left.length === right.length &&
+    left.every((value, index) => value === right[index])
+  );
 }
