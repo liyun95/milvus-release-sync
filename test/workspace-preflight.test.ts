@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { sha256 } from '../src/core/hash.js';
 import {
   ALLOWED_FILES,
+  inspectAppliedWorkspace,
   preflightWorkspace,
 } from '../src/workspace/preflight.js';
 import {
@@ -154,6 +155,65 @@ describe('preflightWorkspace', () => {
         subtype: 'target_file_dirty',
         details: { paths: [RELEASE_NOTES_PATH] },
       },
+    });
+  });
+
+  it('inspects exact dirty-after targets without claiming they are clean', async () => {
+    const repo = await fixture();
+    const releaseNotes = '# Applied Release Notes\n';
+    await repo.write(RELEASE_NOTES_PATH, releaseNotes);
+
+    const inspection = await inspectAppliedWorkspace({
+      repoPath: repo.path,
+      baseRef: 'v2.6.x',
+      expectedAfterHashes: {
+        [RELEASE_NOTES_PATH]: sha256(releaseNotes),
+        [VARIABLES_PATH]: sha256('{"version":"2.6.20"}\n'),
+      },
+    });
+
+    expect(inspection.fileHashes[RELEASE_NOTES_PATH]).toBe(sha256(releaseNotes));
+    expect(inspection.targetFilesDirty).toBe(true);
+    expect(inspection.targetFilesMatchExpectedAfter).toBe(true);
+    expect(inspection).not.toHaveProperty('targetFilesClean');
+    expect(inspection.unrelatedDirtyFiles).toEqual([]);
+  });
+
+  it('rejects dirty targets that do not match the bound after hashes', async () => {
+    const repo = await fixture();
+    await repo.write(RELEASE_NOTES_PATH, '# Unexpected Release Notes\n');
+
+    await expect(
+      inspectAppliedWorkspace({
+        repoPath: repo.path,
+        baseRef: 'v2.6.x',
+        expectedAfterHashes: {
+          [RELEASE_NOTES_PATH]: sha256('# Planned Release Notes\n'),
+          [VARIABLES_PATH]: sha256('{"version":"2.6.20"}\n'),
+        },
+      }),
+    ).rejects.toMatchObject({
+      exitCode: 5,
+      failure: { type: 'verification', subtype: 'target_state_mismatch' },
+    });
+  });
+
+  it('rejects applied-workspace expectations outside the exact two-file allowlist', async () => {
+    const repo = await fixture();
+
+    await expect(
+      inspectAppliedWorkspace({
+        repoPath: repo.path,
+        baseRef: 'v2.6.x',
+        expectedAfterHashes: {
+          [RELEASE_NOTES_PATH]: sha256('# Release Notes\n'),
+          [VARIABLES_PATH]: sha256('{"version":"2.6.20"}\n'),
+          'README.md': sha256('forged'),
+        } as never,
+      }),
+    ).rejects.toMatchObject({
+      exitCode: 5,
+      failure: { type: 'verification', subtype: 'allowlist_violation' },
     });
   });
 

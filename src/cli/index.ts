@@ -2,11 +2,13 @@
 
 import { Command, CommanderError } from 'commander';
 
+import { approvePlan } from '../approval/approval.js';
 import {
   RunnerError,
   normalizeFailure,
 } from '../core/cli-failure.js';
 import { buildPlan } from '../plan/build-plan.js';
+import { getStatus } from '../status/status.js';
 import { printFailure, printSuccess, type OutputFormat } from './output.js';
 
 const program = new Command()
@@ -77,7 +79,15 @@ program
   .requiredOption('--plan-hash <hash>')
   .requiredOption('--by <approver>')
   .option(...formatOption)
-  .action(placeholder);
+  .action(async (taskDir: string, options: ApproveOptions) => {
+    const format = parseOutputFormat(options.format);
+    const approval = await approvePlan({
+      taskDir,
+      planHash: options.planHash,
+      approvedBy: options.by,
+    });
+    printSuccess({ ok: true, command: 'approve', approval }, format);
+  });
 
 program
   .command('apply <task-dir>')
@@ -90,7 +100,11 @@ program
   .command('status <task-dir>')
   .description('Show the current release synchronization task status.')
   .option(...formatOption)
-  .action(placeholder);
+  .action(async (taskDir: string, options: StatusOptions) => {
+    const format = parseOutputFormat(options.format);
+    const result = await getStatus(taskDir);
+    printSuccess({ ok: true, command: 'status', ...result }, format);
+  });
 
 try {
   await program.parseAsync(process.argv);
@@ -122,6 +136,16 @@ type PlanOptions = {
   releaseDate?: string;
   releaseDateReason?: string;
   sdkEvidence?: string;
+  format: string;
+};
+
+type ApproveOptions = {
+  planHash: string;
+  by: string;
+  format: string;
+};
+
+type StatusOptions = {
   format: string;
 };
 

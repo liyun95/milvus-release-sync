@@ -22,6 +22,17 @@ export type WorkspaceSnapshot = {
   fileHashes: Record<AllowedFile, string>;
 };
 
+type WorkspaceState = Omit<WorkspaceSnapshot, 'targetFilesClean'>;
+
+type WorkspaceInspection = WorkspaceState & {
+  targetDirtyFiles: AllowedFile[];
+};
+
+export type AppliedWorkspaceInspection = WorkspaceState & {
+  targetFilesDirty: boolean;
+  targetFilesMatchExpectedAfter: true;
+};
+
 function configurationError(
   subtype: string,
   message: string,
@@ -37,6 +48,20 @@ function configurationError(
     hint: options.hint,
     retryable: false,
     details: options.details,
+  });
+}
+
+function verificationError(
+  subtype: string,
+  message: string,
+  details?: Record<string, unknown>,
+): RunnerError {
+  return new RunnerError(5, {
+    type: 'verification',
+    subtype,
+    message,
+    retryable: false,
+    details,
   });
 }
 
@@ -83,10 +108,10 @@ async function requireDirectory(repoPath: string): Promise<void> {
   );
 }
 
-export async function preflightWorkspace(input: {
+async function inspectWorkspace(input: {
   repoPath: string;
   baseRef: string;
-}): Promise<WorkspaceSnapshot> {
+}): Promise<WorkspaceInspection> {
   await requireDirectory(input.repoPath);
 
   let repoPath: string;
@@ -188,16 +213,12 @@ export async function preflightWorkspace(input: {
   const targetDirtyFiles = ALLOWED_FILES.filter((path) =>
     dirtyFiles.includes(path),
   );
-  if (targetDirtyFiles.length > 0) {
-    throw configurationError(
-      'target_file_dirty',
-      `Allowlisted target file${targetDirtyFiles.length === 1 ? ' has' : 's have'} uncommitted changes.`,
-      { details: { paths: targetDirtyFiles } },
-    );
-  }
 
   const releaseNotes = await readFile(join(repoPath, ALLOWED_FILES[0]), 'utf8');
   const variables = await readFile(join(repoPath, ALLOWED_FILES[1]), 'utf8');
+  const unrelatedDirtyFiles = dirtyFiles.filter(
+    (path) => !ALLOWED_FILES.includes(path as AllowedFile),
+  );
 
   return {
     repoPath,
@@ -205,11 +226,66 @@ export async function preflightWorkspace(input: {
     baseCommit,
     headCommit,
     canonicalRemote,
-    targetFilesClean: true,
-    unrelatedDirtyFiles: dirtyFiles,
+    targetDirtyFiles,
+    unrelatedDirtyFiles,
     fileHashes: {
       [ALLOWED_FILES[0]]: sha256(releaseNotes),
       [ALLOWED_FILES[1]]: sha256(variables),
     },
+  };
+}
+
+export async function preflightWorkspace(input: {
+  repoPath: string;
+  baseRef: string;
+}): Promise<WorkspaceSnapshot> {
+  const inspection = await inspectWorkspace(input);
+  if (inspection.targetDirtyFiles.length > 0) {
+    throw configurationError(
+      'target_file_dirty',
+      `Allowlisted target file${inspection.targetDirtyFiles.length === 1 ? ' has' : 's have'} uncommitted changes.`,
+      { details: { paths: inspection.targetDirtyFiles } },
+    );
+  }
+
+  const { targetDirtyFiles: _targetDirtyFiles, ...workspace } = inspection;
+  return { ...workspace, targetFilesClean: true };
+}
+
+export async function inspectAppliedWorkspace(input: {
+  repoPath: string;
+  baseRef: string;
+  expectedAfterHashes: Record<AllowedFile, string>;
+}): Promise<AppliedWorkspaceInspection> {
+  const expectedPaths = Object.keys(input.expectedAfterHashes);
+  if (
+    expectedPaths.length !== ALLOWED_FILES.length ||
+    expectedPaths.some((path) => !ALLOWED_FILES.includes(path as AllowedFile)) ||
+    ALLOWED_FILES.some((path) => !Object.hasOwn(input.expectedAfterHashes, path))
+  ) {
+    throw verificationError(
+      'allowlist_violation',
+      'Applied workspace inspection requires exactly the two allowlisted target files.',
+      { paths: expectedPaths },
+    );
+  }
+
+  const inspection = await inspectWorkspace(input);
+  const mismatchedPaths = ALLOWED_FILES.filter(
+    (path) => inspection.fileHashes[path] !== input.expectedAfterHashes[path],
+  );
+  if (mismatchedPaths.length > 0) {
+    throw verificationError(
+      'target_state_mismatch',
+      'Current target files do not match the expected applied hashes.',
+      { paths: mismatchedPaths },
+    );
+  }
+
+  const { targetDirtyFiles, ...workspace } = inspection;
+  return {
+    ...workspace,
+    targetFilesDirty: targetDirtyFiles.length > 0,
+    targetFilesMatchExpectedAfter: true,
   };
 }

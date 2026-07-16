@@ -1,7 +1,9 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { planSchema, taskSchema } from './schema.js';
+import { z } from 'zod';
+import { approvalSchema, planSchema, taskSchema } from './schema.js';
 import type {
+  Approval,
   ReleaseDateEvidence,
   ReleasePlan,
   ReleaseTask,
@@ -28,6 +30,31 @@ export async function savePlan(taskDir: string, plan: ReleasePlan): Promise<void
 
 export async function loadPlan(taskDir: string): Promise<ReleasePlan> {
   return planSchema.parse(JSON.parse(await readFile(join(taskDir, 'plan/plan.json'), 'utf8')));
+}
+
+export async function loadApprovals(taskDir: string): Promise<Approval[]> {
+  try {
+    const value = JSON.parse(
+      await readFile(join(taskDir, 'approvals.json'), 'utf8'),
+    );
+    return z.array(approvalSchema).parse(value);
+  } catch (error) {
+    if (isMissingPath(error)) {
+      return [];
+    }
+    throw error;
+  }
+}
+
+export async function saveApprovals(
+  taskDir: string,
+  approvals: Approval[],
+): Promise<void> {
+  await mkdir(taskDir, { recursive: true });
+  await writeJson(
+    join(taskDir, 'approvals.json'),
+    z.array(approvalSchema).parse(approvals),
+  );
 }
 
 export async function savePlanArtifacts(input: {
@@ -61,4 +88,13 @@ export async function savePlanArtifacts(input: {
     writeFile(join(input.taskDir, 'plan/patch.diff'), input.patch, 'utf8'),
     writeJson(join(input.taskDir, 'task.json'), task)
   ]);
+}
+
+function isMissingPath(error: unknown): boolean {
+  return (
+    error !== null &&
+    typeof error === 'object' &&
+    'code' in error &&
+    error.code === 'ENOENT'
+  );
 }
