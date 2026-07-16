@@ -6,7 +6,8 @@ import {
   RunnerError,
   normalizeFailure,
 } from '../core/cli-failure.js';
-import { printFailure, type OutputFormat } from './output.js';
+import { buildPlan } from '../plan/build-plan.js';
+import { printFailure, printSuccess, type OutputFormat } from './output.js';
 
 const program = new Command()
   .name('milvus-release-sync')
@@ -27,8 +28,48 @@ program
   .requiredOption('--repo <path>')
   .requiredOption('--base <ref>')
   .requiredOption('--task-dir <path>')
+  .option('--release-date <date>')
+  .option('--release-date-reason <reason>')
+  .option('--sdk-evidence <path>')
   .option(...formatOption)
-  .action(placeholder);
+  .action(async (options: PlanOptions) => {
+    const format = parseOutputFormat(options.format);
+    const { plan } = await buildPlan({
+      releaseVersion: options.releaseVersion,
+      releaseLine: options.releaseLine,
+      sourceLocator: options.source,
+      repoPath: options.repo,
+      baseRef: options.base,
+      taskDir: options.taskDir,
+      explicitReleaseDate: options.releaseDate,
+      explicitReleaseDateReason: options.releaseDateReason,
+      sdkEvidencePath: options.sdkEvidence,
+    });
+    const blocked = plan.findings.some(
+      (finding) => finding.severity === 'blocker',
+    );
+
+    printSuccess(
+      {
+        ok: true,
+        command: 'plan',
+        taskDir: options.taskDir,
+        planHash: plan.planHash,
+        blocked,
+        findings: plan.findings,
+        files: plan.files.map((file) => ({
+          path: file.path,
+          beforeHash: file.beforeHash,
+          afterHash: file.afterHash,
+          diff: file.diff,
+        })),
+      },
+      format,
+    );
+    if (blocked) {
+      process.exitCode = 1;
+    }
+  });
 
 program
   .command('approve <task-dir>')
@@ -71,6 +112,19 @@ function placeholder(): never {
   throw invalidArguments('Command is not implemented yet.');
 }
 
+type PlanOptions = {
+  releaseVersion: string;
+  releaseLine: string;
+  source: string;
+  repo: string;
+  base: string;
+  taskDir: string;
+  releaseDate?: string;
+  releaseDateReason?: string;
+  sdkEvidence?: string;
+  format: string;
+};
+
 function invalidArguments(message: string): RunnerError {
   return new RunnerError(2, {
     type: 'validation',
@@ -88,4 +142,11 @@ function outputFormat(argv: string[]): OutputFormat {
   )
     ? 'json'
     : 'pretty';
+}
+
+function parseOutputFormat(value: string): OutputFormat {
+  if (value === 'pretty' || value === 'json') {
+    return value;
+  }
+  throw invalidArguments('Output format must be pretty or json.');
 }

@@ -65,6 +65,7 @@ export const planSchema = z.object({
   kind: z.literal('milvus-release-sync-plan'),
   schemaVersion: z.literal(1),
   runnerVersion: z.literal('0.1.0'),
+  registryHash: z.string(),
   releaseVersion: z.string(),
   releaseLine: z.string(),
   generatedAt: z.string(),

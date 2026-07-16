@@ -35,6 +35,7 @@ describe('canonical task state', () => {
       kind: 'milvus-release-sync-plan',
       schemaVersion: 1,
       runnerVersion: '0.1.0',
+      registryHash: 'sha256:registry',
       releaseVersion: '2.6.20',
       releaseLine: '2.6.x',
       generatedAt: '2026-07-16T00:00:00.000Z',
