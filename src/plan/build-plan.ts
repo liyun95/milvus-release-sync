@@ -94,7 +94,10 @@ async function canonicalPotentialPath(path: string): Promise<string> {
   }
 }
 
-async function assertTaskDirOutsideRepo(taskDir: string, repoPath: string): Promise<void> {
+export async function assertTaskDirOutsideRepo(
+  taskDir: string,
+  repoPath: string
+): Promise<void> {
   const canonicalTaskDir = await canonicalPotentialPath(taskDir);
   const pathFromRepo = relative(repoPath, canonicalTaskDir);
   const insideRepo =

@@ -3,6 +3,7 @@
 import { Command, CommanderError } from 'commander';
 
 import { approvePlan } from '../approval/approval.js';
+import { applyPlan } from '../apply/apply-plan.js';
 import {
   RunnerError,
   normalizeFailure,
@@ -94,7 +95,14 @@ program
   .description('Apply or preview an approved release synchronization plan.')
   .option('--write')
   .option(...formatOption)
-  .action(placeholder);
+  .action(async (taskDir: string, options: ApplyOptions) => {
+    const format = parseOutputFormat(options.format);
+    const result = await applyPlan({
+      taskDir,
+      write: options.write === true,
+    });
+    printSuccess({ ok: true, command: 'apply', ...result }, format);
+  });
 
 program
   .command('status <task-dir>')
@@ -146,6 +154,11 @@ type ApproveOptions = {
 };
 
 type StatusOptions = {
+  format: string;
+};
+
+type ApplyOptions = {
+  write?: boolean;
   format: string;
 };
 

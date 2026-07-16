@@ -22,6 +22,15 @@ export type WorkspaceSnapshot = {
   fileHashes: Record<AllowedFile, string>;
 };
 
+export type WorkspaceIdentity = Pick<
+  WorkspaceSnapshot,
+  | 'repoPath'
+  | 'baseRef'
+  | 'baseCommit'
+  | 'headCommit'
+  | 'canonicalRemote'
+>;
+
 type WorkspaceState = Omit<WorkspaceSnapshot, 'targetFilesClean'>;
 
 type WorkspaceInspection = WorkspaceState & {
@@ -108,10 +117,10 @@ async function requireDirectory(repoPath: string): Promise<void> {
   );
 }
 
-async function inspectWorkspace(input: {
+export async function inspectWorkspaceIdentity(input: {
   repoPath: string;
   baseRef: string;
-}): Promise<WorkspaceInspection> {
+}): Promise<WorkspaceIdentity> {
   await requireDirectory(input.repoPath);
 
   let repoPath: string;
@@ -182,6 +191,22 @@ async function inspectWorkspace(input: {
     );
   }
 
+  return {
+    repoPath,
+    baseRef: input.baseRef,
+    baseCommit,
+    headCommit,
+    canonicalRemote,
+  };
+}
+
+async function inspectWorkspace(input: {
+  repoPath: string;
+  baseRef: string;
+}): Promise<WorkspaceInspection> {
+  const identity = await inspectWorkspaceIdentity(input);
+  const { repoPath } = identity;
+
   const missingFiles: AllowedFile[] = [];
   for (const path of ALLOWED_FILES) {
     try {
@@ -221,11 +246,7 @@ async function inspectWorkspace(input: {
   );
 
   return {
-    repoPath,
-    baseRef: input.baseRef,
-    baseCommit,
-    headCommit,
-    canonicalRemote,
+    ...identity,
     targetDirtyFiles,
     unrelatedDirtyFiles,
     fileHashes: {

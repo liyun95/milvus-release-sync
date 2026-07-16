@@ -213,6 +213,15 @@ function releaseHeadings(markdown: string): Array<{ version: string; index: numb
   return headings;
 }
 
+export function countReleaseHeadings(
+  markdown: string,
+  releaseVersion: string
+): number {
+  return releaseHeadings(markdown).filter(
+    (heading) => heading.version === releaseVersion
+  ).length;
+}
+
 export function insertOrReplaceReleaseSection(input: InsertReleaseInput): string {
   const section = normalizeSectionSpacing(input.section);
   const headings = releaseHeadings(input.localMarkdown);
