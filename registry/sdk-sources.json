@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "sources": [
+    {
+      "id": "python",
+      "label": "Python SDK",
+      "sourceType": "github-tag",
+      "repository": "milvus-io/pymilvus",
+      "variablesKeys": ["milvus_python_sdk_real_version"],
+      "includeInTable": true
+    },
+    {
+      "id": "nodejs",
+      "label": "Node.js SDK",
+      "sourceType": "github-tag",
+      "repository": "milvus-io/milvus-sdk-node",
+      "variablesKeys": ["milvus_node_sdk_real_version"],
+      "includeInTable": true
+    },
+    {
+      "id": "java",
+      "label": "Java SDK",
+      "sourceType": "github-tag",
+      "repository": "milvus-io/milvus-sdk-java",
+      "variablesKeys": ["milvus_java_sdk_real_version"],
+      "includeInTable": true
+    },
+    {
+      "id": "go",
+      "label": "Go SDK",
+      "sourceType": "release-version",
+      "variablesKeys": ["milvus_go_sdk_real_version"],
+      "includeInTable": true
+    },
+    {
+      "id": "rest",
+      "label": "REST",
+      "sourceType": "release-version",
+      "variablesKeys": ["milvus_restful_sdk_real_version"],
+      "includeInTable": false
+    },
+    {
+      "id": "csharp",
+      "label": "C# SDK",
+      "sourceType": "unchanged",
+      "variablesKeys": ["milvus_csharp_sdk_real_version"],
+      "includeInTable": false
+    }
+  ],
+  "releaseVariables": {
+    "milvus_release_version": "{version}",
+    "milvus_release_tag": "{version}",
+    "milvus_deb_release": "{version}",
+    "milvus_deb_amd64": "milvus_{version}-1_amd64.deb",
+    "milvus_rpm_amd64": "milvus_{version}-1_amd64.rpm",
+    "milvus_deb_arm64": "milvus_{version}-1_arm64.deb",
+    "milvus_rpm_arm64": "milvus_{version}-1_arm64.rpm",
+    "milvus_image": "{version}"
+  }
+}
